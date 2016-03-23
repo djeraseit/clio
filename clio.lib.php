@@ -2,11 +2,11 @@
 
 /**
  * @file
- * Integration layer to communicate with the Envato API.
+ * Integration layer to communicate with the Clio API.
  * 
- * @see https://build.envato.com/api
+ * @see http://api-docs.clio.com/v2/index.html
  *
- * @outher Abdullah Sowailem.
+ * @author Theodis Butler.
  */
 
 
@@ -59,23 +59,30 @@
  *       the refresh token, and if valid issues a new access token (and
  *       optionally, a new refresh token).
  * ----------------------------------------------------------------------------
- *
+ * response_type:    code
+ *  client_id:        application key from above
+ * redirect_uri:     callback URL to redirect to after authorization
+ * state (optional): Can be used by your application to maintain state between the request and the callback
  * -------------------------------------
  * 1) Request the authorization code
  *
- * https://api.envato.com/authorization?response_type=code&client_id=[CLIENT_ID]&redirect_uri=[REDIRECT_URI]
+ * https://app.goclio.com/oauth/authorize?response_type=code&client_id=fzaXZvrLWZX747wQQRNuASeVCBxaXpJaPMDi7F96&redirect_uri=http%3A%2F%2Fyourapp.com%2Fcallback&state=xyz
  *
  * --------------------------------------
  * 2) Approve the authorization access
  *
  * After the user approval, the URL will change to http://[REDIRECT_URI]?code=[CODE]
  * And now we have the [CODE] .
- *
+ * http://yourapp.com/callback?code=s9jGYmL8E00ZyuJP3AEO&state=xyz
+ * 
+ * Decline the authorization
+ * http://yourapp.com/callback?error=access_denied&state=xyz
  * --------------------------------------
  * 3) Request the Bearer token
- *
+ * client_id=fzaXZvrLWZX747wQQRNuASeVCBxaXpJaPMDi7F96&client_secret=xVp5wAX05g1oDjV5astg2KZIZ85NX31FKTPV876v&grant_type=authorization_code&code=s9jGYmL8E00ZyuJP3AEO&redirect_uri=http%3A%2F%2Fyourapp.com%2Fcallback
+ * 
  * <POSTRequest>
- * https://api.envato.com/token
+ * https://app.goclio.com/oauth/token
  *    grant_type=authorization_code&
  *    code=[CODE]&
  *    redirect_uri=[REDIRECT_URI]&
@@ -87,20 +94,18 @@
  * 
  * <Respond>
  * {
- *	  "refresh_token": "GBdxWsxo1CqAK9yCneH75wgkXw1q7bio",
  *	  "token_type": "bearer",
  *	  "access_token": "c0lQ2WLYW9qAZ9RH12cH1fJPzVWSscXP",
- *	  "expires_in": 3600
  * }
  * </Respond>
  *  
  * --------------------------------------
  * 4) Access the API using the Bearer token
  *
- * <POSTRequest>
- * https://api.envato.com/v1/market/private/user/account.json
+ * <GETRequest>
+ * https://app.goclio.com/api/v2/users/who_am_i
  * "Authorization: Bearer c0lQ2WLYW9qAZ9RH12cH1fJPzVWSscXP"
- * </POSTRequest>
+ * </GETRequest>
  * 
  * The respond of this request is:
  * 
@@ -127,9 +132,9 @@
 class EnvatoException extends Exception {}
 
 /**
- * Primary Envato API implementation class
+ * Primary Clio API implementation class
  */
-class Envato {
+class Clio {
 
   /**
    *
@@ -159,7 +164,7 @@ class Envato {
    ***********************************************/
   
   /**
-   * Constructor for the Envato class
+   * Constructor for the Clio class
    * $client_id
    * $client_secret
    */
@@ -171,10 +176,10 @@ class Envato {
    *
    */
   public function get_authorization_url($redirect_uri) {
-    //https://api.envato.com/authorization?response_type=code&client_id=[CLIENT ID]&redirect_uri=[REDIRECT URI]
-    $client_id                   = variable_get('envato_client_id', '');
-    //$client_secret               = variable_get('envato_client_secret', '');
-    $url = variable_get('envato_api', ENVATO_API) . '/authorization';
+    //https://app.goclio.com/authorization?response_type=code&client_id=[CLIENT ID]&redirect_uri=[REDIRECT URI]
+    $client_id                   = variable_get('clio_client_id', '');
+    //$client_secret               = variable_get('clio_client_secret', '');
+    $url = variable_get('clio_api', CLIO_API) . '/oauth/authorization';
     $url .= "?response_type=code&client_id=".$client_id."&redirect_uri=".$redirect_uri;
     return $url;
   }
@@ -184,8 +189,8 @@ class Envato {
    *
    */
   public function get_authentication_url() {
-    //https://api.envato.com/token
-    $url = variable_get('envato_api', ENVATO_API) . '/token';
+    //https://app.goclio.com/oauth/token
+    $url = variable_get('clio_api', CLIO_API) . '/oauth/token';
     return $url;
   }
   
@@ -201,8 +206,8 @@ class Envato {
     $this->is_authorization = $boolean;
   }
   /**
-   * Authorization for the Envato APP.
-   * @see https://build.envato.com/api
+   * Authorization for the Clio APP.
+   * @see http://api-docs.clio.com/
    *
    * @param string $redirect_uri
    *   String to append to the request.
@@ -214,7 +219,7 @@ class Envato {
   
   /**
    * Request an "access token" for the Envato API.
-   * @see https://build.envato.com/api
+   * @see http://api-docs.clio.com/
    *
    * @param string $redirect_uri
    *   String to append to the request.
@@ -238,19 +243,19 @@ class Envato {
   	$parameters['grant_type']    = "authorization_code";
   	$parameters['code']          = $code;
   	$parameters['redirect_uri']  = $redirect_uri;
-  	$parameters['client_id']     = variable_get('envato_client_id', '');
-  	$parameters['client_secret'] = variable_get('envato_client_secret', '');
+  	$parameters['client_id']     = variable_get('clio_client_id', '');
+  	$parameters['client_secret'] = variable_get('clio_client_secret', '');
 		$is_authorization            = FALSE;
     $method = 'POST';
 	
     try {
       $response = $this->request($url, $parameters, $method,$is_authorization );
     }
-    catch (EnvatoException $e) {
-      watchdog('envato', '!message', array('!message' => $e->__toString()), WATCHDOG_ERROR);
+    catch (ClioException $e) {
+      watchdog('clio', '!message', array('!message' => $e->__toString()), WATCHDOG_ERROR);
       return FALSE;
     }
-    $token = drupal_json_decode($response);
+    $token = clio_json_decode($response);
     return $token;
   }
   
@@ -273,7 +278,7 @@ class Envato {
     }
 
     $headers = array();
-  	$headers['User-Agent'] = variable_get('envato_app_name', ENVATO_APP_NAME);
+  	$headers['User-Agent'] = variable_get('clio_app_name', CLIO_APP_NAME);
   	$headers['Content-Type'] = 'application/x-www-form-urlencoded;charset=UTF-8';
 
   	if($is_authorization){
@@ -289,7 +294,7 @@ class Envato {
     }
     else {
       $error = $response->error;
-      $check = drupal_json_decode($response->data);
+      $check = clio_json_decode($response->data);
       
       if($check['error_description'] == "Token already expired"){
         $this->refresh_token();
@@ -333,7 +338,7 @@ class Envato {
    *   The complete path to the endpoint.
    */
   protected function create_url($path, $format = '.json') {
-    $url =  variable_get('envato_api', ENVATO_API) .'/v1/'. $path . $format;
+    $url =  variable_get('clio_api', CLIO_API) .'/v2/'. $path . $format;
     return $url;
   }
   
@@ -356,17 +361,17 @@ class Envato {
   protected function refresh_token(){
     ///global $user;
     // . '/token?grant_type=refresh_token&refresh_token='.$this->token['refresh_token'];
-    $url = variable_get('envato_api', ENVATO_API).'/token'; 
+    $url = variable_get('clio_api', CLIO_API).'/token'; 
 
     $parameters = array();
     $parameters['grant_type'] = "refresh_token";
 
     ///$parameters['refresh_token']  = $user->refresh_token;
     $parameters['refresh_token']  = $this->token['refresh_token'];
-    $parameters['redirect_uri']   = variable_get('envato_app_redirect_uri', ENVATO_APP_REDIRECT_URI);//$redirect_uri;
+    $parameters['redirect_uri']   = variable_get('clio_app_redirect_uri', CLIO_APP_REDIRECT_URI);//$redirect_uri;
     
-    $parameters['client_id']      = variable_get('envato_client_id', '');
-    $parameters['client_secret']  = variable_get('envato_client_secret', '');
+    $parameters['client_id']      = variable_get('clio_client_id', '');
+    $parameters['client_secret']  = variable_get('clio_client_secret', '');
     
     $method = 'POST';
     $is_authorization = FALSE;
@@ -377,16 +382,16 @@ class Envato {
       watchdog('envato', '!message', array('!message' => $e->__toString()), WATCHDOG_ERROR);
       return FALSE;
     }
-    $new_token = drupal_json_decode($response);
+    $new_token = clio_json_decode($response);
     
     $this->token['access_token'] = $new_token['access_token'];
         
-    module_invoke_all('envato_refresh_token', $new_token);
+    module_invoke_all('clio_refresh_token', $new_token);
     
   }
 
   /**
-   * Calls a Envato API endpoint.
+   * Calls a Clio API endpoint.
    * 
    * @return
    *   JSON data as respond.
@@ -403,8 +408,8 @@ class Envato {
         $response = $this->request($call_params['url'], $call_params['params'], $call_params['method']);
       }
     }
-    catch (EnvatoException $e) {
-      watchdog('envato', '!message', array('!message' => $e->__toString()), WATCHDOG_ERROR);
+    catch (ClioException $e) {
+      watchdog('clio', '!message', array('!message' => $e->__toString()), WATCHDOG_ERROR);
       return FALSE;
     }
     
@@ -412,7 +417,7 @@ class Envato {
       return FALSE;
     }
 
-    return drupal_json_decode($response);
+    return clio_json_decode($response);
   }
 
 
@@ -420,11 +425,11 @@ class Envato {
 
 
   /* ----------------------------------------------------------------------------------------------- */
-  /* --------------- https://build.envato.com/api -------------------------------------------------- */
+  /* --------------- http://api-docs.clio.com/ -------------------------------------------------- */
   /* ----------------------------------------------------------------------------------------------- */
 
   /****************************************************
-  * Search Envato Market                              *
+  * Activities                     *
   *****************************************************/
 
 
@@ -577,15 +582,24 @@ class Envato {
   }
 
   /****************************************************
-  * Clio Market Stats                               *
+  * Get All Activities                              *
+  *****************************************************/
+public function get_all_activities(){
+   return $this->call("api/v2/activities:".$purchase_code);
+  }
+
+  /****************************************************
+  * Get An Activity                             *
   *****************************************************/
 
   /****************************************************
-  * Clio Market Stats                               *
+  * Create An Activity                             *
   *****************************************************/
-
-  /****************************************************
-  * Clio Market Stats                               *
+  
+   /****************************************************
+  * Update An Activity                             *
   *****************************************************/
-
+ /****************************************************
+  * Delete An Activity                             *
+  *****************************************************/
 }
